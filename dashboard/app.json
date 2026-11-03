@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Article search",
+    "slug": "article-search",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "backgroundColor": "#f3eee6",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
