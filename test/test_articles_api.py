@@ -1,4 +1,4 @@
-"""Pagination tests for GET /api/articles.
+"""Pagination and search tests for GET /api/articles.
 
 Uses an in-memory SQLite session injected through the existing get_db
 dependency. The app itself still reads DATABASE_URL and does not create a
@@ -104,6 +104,51 @@ class ArticlesEndpointTest(unittest.TestCase):
             self.client.get("/api/articles", params={"page_size": 101}).status_code,
             422,
         )
+
+    def test_search_matches_title_body_or_url(self):
+        by_title = self.client.get("/api/articles", params={"q": "Article 2"}).json()
+        self.assertEqual([item["title"] for item in by_title["items"]], ["Article 2"])
+        by_body = self.client.get("/api/articles", params={"q": "Body 3"}).json()
+        self.assertEqual([item["title"] for item in by_body["items"]], ["Article 3"])
+        by_url = self.client.get("/api/articles", params={"q": "example.com/1"}).json()
+        self.assertEqual([item["title"] for item in by_url["items"]], ["Article 1"])
+
+    def test_search_is_case_insensitive_and_paginates(self):
+        response = self.client.get(
+            "/api/articles",
+            params={"q": "article", "page": 1, "page_size": 2},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["total"], 3)
+        self.assertEqual(len(body["items"]), 2)
+        self.assertEqual(body["page"], 1)
+
+    def test_blank_search_returns_every_article(self):
+        body = self.client.get("/api/articles", params={"q": "   "}).json()
+        self.assertEqual(body["total"], 3)
+
+    def test_search_escapes_like_wildcards(self):
+        response = self.client.get("/api/articles", params={"q": "%"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["total"], 0)
+
+    def test_dashboard_origin_is_allowed(self):
+        response = self.client.get(
+            "/api/articles",
+            headers={"Origin": "http://localhost:5173"},
+        )
+        self.assertEqual(
+            response.headers.get("access-control-allow-origin"),
+            "http://localhost:5173",
+        )
+
+    def test_other_origins_are_not_allowed(self):
+        response = self.client.get(
+            "/api/articles",
+            headers={"Origin": "https://example.com"},
+        )
+        self.assertIsNone(response.headers.get("access-control-allow-origin"))
 
     def test_missing_database_url(self):
         app.dependency_overrides.clear()
