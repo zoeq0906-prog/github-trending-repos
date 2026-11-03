@@ -150,6 +150,39 @@ class ArticlesEndpointTest(unittest.TestCase):
         )
         self.assertIsNone(response.headers.get("access-control-allow-origin"))
 
+    def test_preflight_from_dashboard(self):
+        response = self.client.options(
+            "/api/articles",
+            headers={
+                "Origin": "http://127.0.0.1:5173",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers.get("access-control-allow-origin"),
+            "http://127.0.0.1:5173",
+        )
+        self.assertIn("GET", response.headers.get("access-control-allow-methods", ""))
+
+    def test_error_response_keeps_cors_headers(self):
+        app.dependency_overrides.clear()
+        previous = os.environ.pop("DATABASE_URL", None)
+        try:
+            response = self.client.get(
+                "/api/articles",
+                headers={"Origin": "http://localhost:5173"},
+            )
+        finally:
+            if previous is not None:
+                os.environ["DATABASE_URL"] = previous
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.headers.get("access-control-allow-origin"),
+            "http://localhost:5173",
+        )
+        self.assertIn("DATABASE_URL", response.json()["detail"])
+
     def test_missing_database_url(self):
         app.dependency_overrides.clear()
         previous = os.environ.pop("DATABASE_URL", None)
