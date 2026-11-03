@@ -7,6 +7,11 @@ npm-debug.log
 .idea
 .vscode
 
+# python
+__pycache__/
+*.py[cod]
+.venv/
+
 /.env
 /.artifacts
 /notes.txt
